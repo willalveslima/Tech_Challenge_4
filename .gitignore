@@ -314,7 +314,7 @@ arquivos
 
 scripts_usados/
 
-*.ipynb
+#*.ipynb
 
 # banco de dados / cache
 *.sqlite
@@ -333,7 +333,7 @@ app.log.*
 *.pkl
 
 #  modelo
-.keras
+*.keras
 #  cache do keras
 # scaler
-.gz
+*.gz

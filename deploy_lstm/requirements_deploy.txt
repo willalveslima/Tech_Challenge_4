@@ -6,3 +6,5 @@ scikit-learn
 joblib
 pydantic
 python-multipart
+starlette-exporter # Adicionado para métricas Prometheus
+prometheus-client # Dependência do starlette-exporter

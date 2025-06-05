@@ -1,0 +1,12 @@
+# deploy_lstm/prometheus.yml
+global:
+  scrape_interval: 15s # Com que frequência raspar os alvos.
+  evaluation_interval: 15s # Com que frequência avaliar as regras.
+
+scrape_configs:
+  - job_name: 'fastapi_app'
+    # O Prometheus e a API FastAPI estarão na mesma rede Docker definida pelo docker-compose.
+    # 'fastapi_app' será o nome do serviço da API no docker-compose.yml.
+    # A porta é a que a API expõe DENTRO da rede Docker.
+    static_configs:
+      - targets: ['fastapi_app:8000'] # 'fastapi_app' é o nome do serviço no docker-compose

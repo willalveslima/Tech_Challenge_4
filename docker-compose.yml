@@ -1,70 +1,64 @@
-# projeto_raiz/docker-compose.yml
-version: '3.8'
+    # projeto_raiz/docker-compose.yml
+    version: '3.8'
 
-services:
-  fastapi_app:
-    build:
-      context: . # Contexto é a pasta projeto_raiz/
-      dockerfile: deploy_lstm/Dockerfile # Caminho para o Dockerfile da API
-    container_name: lstm_api_container_compose
-    restart: unless-stopped
-    ports:
-      - "8000:8000" # Mapeia porta 8000 do host para 8000 do container da API
-    volumes:
-      # Mapeia a pasta do modelo para dentro do container, garantindo que a API use os arquivos corretos
-      # Isso é redundante se o Dockerfile já copia os modelos para /app,
-      # mas pode ser útil para desenvolvimento se você quiser atualizar os modelos sem rebuildar a imagem.
-      # Para produção, a cópia no Dockerfile é geralmente preferida.
-      # - ./modelo:/app/modelo # Exemplo: se os caminhos no script FastAPI fossem /app/modelo/arquivo
-      # Como os caminhos no script são relativos a /app (ex: "melhor_modelo_lstm.keras"),
-      # e o Dockerfile já copia para /app, este volume específico pode não ser necessário
-      # a menos que você queira hot-reloading de modelos (o que não é o caso aqui).
-      - ./modelo/melhor_modelo_lstm.keras:/app/melhor_modelo_lstm.keras
-      - ./modelo/min_max_scaler.gz:/app/min_max_scaler.gz
+    services:
+      fastapi_app:
+        build:
+          context: .
+          dockerfile: deploy_lstm/Dockerfile
+        container_name: lstm_api_container_compose
+        restart: unless-stopped
+        ports:
+          - "8000:8000"
+        volumes:
+          - ./modelo/melhor_modelo_lstm.keras:/app/melhor_modelo_lstm.keras
+          - ./modelo/min_max_scaler.gz:/app/min_max_scaler.gz
+        networks:
+          - monitor_net
+
+      prometheus:
+        image: prom/prometheus:v2.50.1
+        container_name: prometheus_server
+        restart: unless-stopped
+        ports:
+          - "9090:9090"
+        volumes:
+          - ./deploy_lstm/prometheus.yml:/etc/prometheus/prometheus.yml
+          # - prometheus_data:/prometheus # Descomente para persistir dados do Prometheus
+        command:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus'
+          - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+          - '--web.console.templates=/usr/share/prometheus/consoles'
+          - '--web.enable-lifecycle'
+        networks:
+          - monitor_net
+
+      grafana:
+        image: grafana/grafana-oss:10.4.2
+        container_name: grafana_dashboard
+        restart: unless-stopped
+        ports:
+          - "3000:3000"
+        volumes:
+          - grafana_data:/var/lib/grafana # Persiste dados do Grafana como plugins, configurações de utilizador, etc.
+          # Montar os diretórios de provisioning:
+          - ./grafana_provisioning/datasources:/etc/grafana/provisioning/datasources
+          - ./grafana_provisioning/dashboards:/etc/grafana/provisioning/dashboards
+        environment:
+          - GF_SECURITY_ADMIN_USER=admin
+          - GF_SECURITY_ADMIN_PASSWORD=grafana # Mude isto!
+          # GF_USERS_ALLOW_SIGN_UP=false
+        depends_on:
+          - prometheus
+        networks:
+          - monitor_net
+
     networks:
-      - monitor_net
+      monitor_net:
+        driver: bridge
 
-  prometheus:
-    image: prom/prometheus:v2.50.1 # Use uma versão estável
-    container_name: prometheus_server
-    restart: unless-stopped
-    ports:
-      - "9090:9090" # Porta do Prometheus no host
     volumes:
-      - ./deploy_lstm/prometheus.yml:/etc/prometheus/prometheus.yml # Mapeia o arquivo de configuração
-      # Volume para persistir dados do Prometheus (opcional para teste rápido)
-      # - prometheus_data:/prometheus 
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle' # Permite recarregar a configuração via API
-    networks:
-      - monitor_net
-
-  grafana:
-    image: grafana/grafana-oss:10.4.2 # Use uma versão estável
-    container_name: grafana_dashboard
-    restart: unless-stopped
-    ports:
-      - "3000:3000" # Porta do Grafana no host
-    volumes:
-      # Volume para persistir dados do Grafana (dashboards, fontes de dados, etc.)
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=grafana # Mude isso em um ambiente real!
-      # - GF_USERS_ALLOW_SIGN_UP=false # Desabilitar cadastro de novos usuários
-    depends_on:
-      - prometheus
-    networks:
-      - monitor_net
-
-networks:
-  monitor_net:
-    driver: bridge
-
-volumes:
-  # prometheus_data: # Descomente se quiser persistir dados do Prometheus
-  grafana_data: # Volume para persistir dados do Grafana
+      # prometheus_data:
+      grafana_data:
+    
